@@ -1,0 +1,155 @@
+/**
+ * Selected Project Case Studies for Manikandan N. (Mr.MK)
+ * Order:
+ * 01 – AGENT.STUDIO
+ * 02 – CINEVORA
+ * 03 – MILKIBA
+ * 04 – Face Swap Deepfake Video Detection
+ */
+export const projects = [
+  {
+    id: "agent-studio",
+    number: "01",
+    title: "AGENT.STUDIO — AI Agent Builder Platform",
+    shortTitle: "AGENT.STUDIO",
+    category: "Generative AI / Agentic Systems",
+    subtitle:
+      "Multi-LLM AI Agent Builder Platform with RAG, Tool Integrations, and Agent Publishing.",
+    description:
+      "A platform-managed AI Agent Builder that empowers engineers and creators to configure, test, and publish intelligent autonomous AI agents across multiple leading LLM providers (Gemini, Groq, OpenRouter, Mistral). Features dynamic knowledge-base grounding via RAG, custom tool/API calling, and zero-code agent publishing workflows.",
+    technologies: [
+      "FastAPI",
+      "React",
+      "TypeScript",
+      "Tailwind CSS",
+      "Gemini",
+      "Groq",
+      "OpenRouter",
+      "Mistral AI",
+      "RAG",
+      "Agentic Workflows",
+    ],
+    features: [
+      "Multi-LLM integration (Gemini, Groq, OpenRouter, Mistral)",
+      "Dynamic RAG knowledge-base grounding",
+      "Custom tool & function calling integration",
+      "Autonomous agent workflow orchestration",
+      "Instant web deployment and agent publishing",
+    ],
+    thumbnail: "/projects/thumbnails/AGENT.STUDIO.png",
+    video: "/projects/videos/AGENT.STUDIO.mp4",
+    github: "https://github.com/manikandan10bs",
+    demo: null,
+    demoNote: "Featured flagship system // Staging deployment",
+    order: 1,
+    featured: true,
+    published: true,
+  },
+  {
+    id: "cinevora",
+    number: "02",
+    title: "Cinevora — Real-Time Movie Recommendation Service",
+    shortTitle: "Cinevora",
+    category: "Recommendation Systems / MLOps",
+    subtitle:
+      "Real-Time Recommendation Service with Knowledge Graph RAG and MLOps Monitoring.",
+    description:
+      "A real-time hybrid movie recommendation service combining collaborative filtering, content embeddings, and Knowledge Graph RAG. Integrated with continuous MLOps telemetry, real-time latency monitoring, and an interactive AI Concierge conversational assistant.",
+    technologies: [
+      "Python",
+      "FastAPI",
+      "React",
+      "TypeScript",
+      "Gemini",
+      "NetworkX",
+      "SQLite",
+      "Machine Learning",
+      "MLOps Telemetry",
+    ],
+    features: [
+      "Hybrid collaborative & content-based recommendation engine",
+      "Knowledge Graph RAG with NetworkX semantic traversal",
+      "Interactive LLM-powered AI Cine Concierge",
+      "Real-time MLOps observability & telemetry dashboard",
+      "Production-grade sub-100ms inference pipeline",
+    ],
+    thumbnail: "/projects/thumbnails/CINEVORA.png",
+    video: "/projects/videos/cinevora.mp4",
+    github: "https://github.com/manikandan10bs/cinevora",
+    demo: "https://cinevora-z42e.onrender.com",
+    demoNote: "Live on Render (spins up in ~30s on free tier)",
+    order: 2,
+    featured: false,
+    published: true,
+  },
+  {
+    id: "milkiba",
+    number: "03",
+    title: "MILKIBA — Dairy Operations & Marketplace Intelligence Platform",
+    shortTitle: "MILKIBA",
+    category: "Full-Stack Web / Realtime Analytics",
+    subtitle:
+      "From Dairy Operations to Data-Driven Intelligence — Real-Time Marketplace Platform.",
+    description:
+      "A full-stack dairy marketplace and operations intelligence platform bridging dairy farmers, vendors, buyers, and sellers. Features real-time transaction synchronization, interactive operational dashboards, automated business analytics, and cloud database architecture.",
+    technologies: [
+      "JavaScript",
+      "Firebase",
+      "Realtime Database",
+      "Interactive Dashboards",
+      "Business Analytics",
+      "REST APIs",
+      "Cloud Architecture",
+    ],
+    features: [
+      "Interactive Vendor, Buyer, and Seller operations dashboards",
+      "Real-time stock and supply ledger synchronization",
+      "Business analytics and data-driven intelligence charts",
+      "Automated stock, purchase cost, and profit report generator",
+      "Cloud-backed responsive user interface",
+    ],
+    thumbnail: "/projects/thumbnails/milkiba.png",
+    video: null,
+    github: "https://github.com/manikandan10bs",
+    demo: null,
+    demoNote: "Dairy intelligence platform // Architecture on GitHub",
+    order: 3,
+    featured: false,
+    published: true,
+  },
+  {
+    id: "deepfake-detection",
+    number: "04",
+    title: "Face Swap Deepfake Video Detection",
+    shortTitle: "Deepfake Detection",
+    category: "Computer Vision / Deep Learning",
+    subtitle:
+      "Computer Vision solution using CNN and Vision Transformer architectures.",
+    description:
+      "A forensic computer vision system engineered to detect facial manipulation and identity swapping in digital video streams. Combines convolutional neural network (CNN) feature backbones for local blending boundary artifacts with Vision Transformers (ViT) for global temporal coherence across frames.",
+    technologies: [
+      "Python",
+      "TensorFlow",
+      "PyTorch",
+      "CNN",
+      "Vision Transformers",
+      "OpenCV",
+      "Forensics",
+    ],
+    features: [
+      "Frame-level facial alignment & landmark normalization",
+      "CNN spatial artifact analysis (boundary blend detection)",
+      "Vision Transformer (ViT) temporal self-attention",
+      "Binary classification confidence scoring",
+      "Optimized 30 FPS inference pipeline",
+    ],
+    thumbnail: null,
+    video: null,
+    github: "https://github.com/manikandan10bs",
+    demo: null,
+    demoNote: "Model architecture & weights on GitHub",
+    order: 4,
+    featured: false,
+    published: true,
+  },
+];
