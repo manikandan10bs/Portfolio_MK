@@ -16,6 +16,7 @@ export const certificates = [
     credentialId: "6d0d70d2-1325-47b8-be6b-8c767209dfd2",
     skills: ["Artificial Intelligence", "Machine Learning", "Deep Learning", "AI Ethics", "Neural Networks"],
     accentColor: "#B99378",
+    published: true,
   },
   {
     id: "gen-ai-ibm-fundamentals",
@@ -30,6 +31,7 @@ export const certificates = [
     credentialId: "ab17971d-4da7-46b3-88e5-04b101860a86",
     skills: ["Generative AI", "Prompt Engineering", "Large Language Models", "Foundation Models", "Transformers"],
     accentColor: "#B99378",
+    published: true,
   },
   {
     id: "claude-academy",
@@ -44,5 +46,6 @@ export const certificates = [
     credentialId: "f70fc908e1b62a854b76c893a3aa6fad",
     skills: ["Claude 3.5 Sonnet", "Agentic Coding", "Anthropic API", "Tool Calling", "Context Optimization"],
     accentColor: "#B99378",
+    published: true,
   },
 ];
