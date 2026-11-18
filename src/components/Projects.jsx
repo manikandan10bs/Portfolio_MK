@@ -16,6 +16,11 @@ import { FaGithub } from "react-icons/fa6";
 import { projects as defaultProjects } from "../data/projects";
 import { getPublishedProjects } from "../services/portfolioService";
 
+/**
+ * Automatic Project Showcase Rotation Interval: 2,300 milliseconds (2.3 seconds)
+ */
+const PROJECT_ROTATION_INTERVAL = 2300;
+
 /* ─── Interactive 3D Tilt Card (Hero-grade 3D Movement) ─── */
 function ThreeDTiltCard({ children, className = "", enableTilt = true }) {
   const cardRef = useRef(null);
@@ -90,7 +95,7 @@ function ThreeDTiltCard({ children, className = "", enableTilt = true }) {
 }
 
 /* ─── Compact Spacious Video & Screenshot Player (object-contain with Fullscreen) ─── */
-function ProjectMediaViewer({ project, onOpenLightbox }) {
+function ProjectMediaViewer({ project, onOpenLightbox, onVideoPlayChange }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const videoRef = useRef(null);
@@ -98,6 +103,12 @@ function ProjectMediaViewer({ project, onOpenLightbox }) {
 
   const hasVideo = Boolean(project.video);
   const hasThumbnail = Boolean(project.thumbnail);
+
+  // Sync video playback state with parent to avoid auto-rotating mid-video
+  useEffect(() => {
+    onVideoPlayChange?.(isPlaying);
+    return () => onVideoPlayChange?.(false);
+  }, [isPlaying, onVideoPlayChange]);
 
   // Play video on hover if present
   useEffect(() => {
@@ -320,9 +331,11 @@ export default function Projects() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const [lightbox, setLightbox] = useState({ open: false, src: "", title: "" });
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
   const sectionRef = useRef(null);
+  const timerRef = useRef(null);
 
   // Fetch published projects from Firestore (with local fallback)
   useEffect(() => {
@@ -343,23 +356,44 @@ export default function Projects() {
 
   const total = projectList.length;
 
+  // Timer helper: auto-rotates projects every 2.3 seconds (pauses only while video/lightbox is active)
+  const startRotationTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (total <= 1 || isVideoPlaying || lightbox.open) return;
+
+    timerRef.current = setInterval(() => {
+      setDirection(1);
+      setCurrentIndex((prev) => (prev + 1) % total);
+    }, PROJECT_ROTATION_INTERVAL);
+  }, [total, isVideoPlaying, lightbox.open]);
+
+  useEffect(() => {
+    startRotationTimer();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [startRotationTimer]);
+
   const handlePrev = useCallback(() => {
     setDirection(-1);
     setCurrentIndex((prev) => (prev === 0 ? total - 1 : prev - 1));
-  }, [total]);
+    startRotationTimer();
+  }, [total, startRotationTimer]);
 
   const handleNext = useCallback(() => {
     setDirection(1);
     setCurrentIndex((prev) => (prev + 1) % total);
-  }, [total]);
+    startRotationTimer();
+  }, [total, startRotationTimer]);
 
   const handleJump = useCallback(
     (idx) => {
       if (idx === currentIndex) return;
       setDirection(idx > currentIndex ? 1 : -1);
       setCurrentIndex(idx);
+      startRotationTimer();
     },
-    [currentIndex]
+    [currentIndex, startRotationTimer]
   );
 
   // Keyboard navigation
@@ -606,6 +640,7 @@ export default function Projects() {
                         onOpenLightbox={(src, title) =>
                           setLightbox({ open: true, src, title })
                         }
+                        onVideoPlayChange={setIsVideoPlaying}
                       />
                     )}
                   </div>
@@ -618,8 +653,18 @@ export default function Projects() {
         {/* ─── Minimal Bottom Hint (Keeps section screen-fitted) ─── */}
         <div className="pt-2 flex items-center justify-between text-[10px] font-mono text-[#77736D] shrink-0">
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Interactive 3D Viewport Gallery</span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                isVideoPlaying || lightbox.open
+                  ? "bg-[#B99378]"
+                  : "bg-emerald-500 animate-pulse"
+              }`}
+            />
+            <span>
+              {isVideoPlaying
+                ? "Auto-Rotate Paused (Playing Demo)"
+                : "Auto-Rotating (2.3s) • Interactive 3D Gallery"}
+            </span>
           </div>
           <span className="hidden sm:inline">
             Use <kbd className="px-1 py-0.5 rounded bg-[#EFEAE3] text-[#171717] font-semibold text-[9px]">←</kbd> <kbd className="px-1 py-0.5 rounded bg-[#EFEAE3] text-[#171717] font-semibold text-[9px]">→</kbd> or click project titles above
