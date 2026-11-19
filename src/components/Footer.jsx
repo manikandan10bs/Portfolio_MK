@@ -2,7 +2,8 @@ import { ArrowUp } from "lucide-react";
 import { FaGithub, FaLinkedinIn, FaInstagram } from "react-icons/fa6";
 import { personal } from "../data/personal";
 
-export default function Footer() {
+export default function Footer({ profile }) {
+  const p = profile || personal;
   const currentYear = new Date().getFullYear();
 
   const handleScrollTop = () => {
@@ -16,14 +17,14 @@ export default function Footer() {
         <div className="text-center md:text-left">
           <div className="flex items-center justify-center md:justify-start gap-2">
             <span className="text-base font-bold text-white tracking-tight">
-              {personal.brandName || "Mr.MK"}
+              {p.brandName || "Mr.MK"}
             </span>
             <span className="text-[10px] font-mono text-[#B99378] uppercase tracking-wider hidden sm:inline">
-              // {personal.designation}
+              // {p.designation || p.title}
             </span>
           </div>
           <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-            {personal.location} • <a href={`mailto:${personal.email}`} className="hover:text-white transition-colors">{personal.email}</a> • <a href={`tel:${personal.phone}`} className="hover:text-white transition-colors">{personal.phoneDisplay || personal.phone}</a>
+            {p.location || "India"} • <a href={`mailto:${p.email}`} className="hover:text-white transition-colors">{p.email}</a> • <a href={`tel:${p.phone}`} className="hover:text-white transition-colors">{p.phoneDisplay || p.phone}</a>
           </p>
         </div>
 
@@ -31,7 +32,7 @@ export default function Footer() {
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1.5">
             <a
-              href={personal.github}
+              href={p.github}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="GitHub Profile"
@@ -42,7 +43,7 @@ export default function Footer() {
             </a>
 
             <a
-              href={personal.linkedin}
+              href={p.linkedin}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="LinkedIn Profile"
@@ -53,7 +54,7 @@ export default function Footer() {
             </a>
 
             <a
-              href={personal.instagram}
+              href={p.instagram}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram Profile"
@@ -77,7 +78,7 @@ export default function Footer() {
 
       {/* Copyright Note */}
       <div className="max-w-7xl mx-auto mt-2 pt-2 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-[9px] font-mono text-slate-500 gap-1">
-        <p>© {currentYear} {personal.name}. All rights reserved.</p>
+        <p>© {currentYear} {p.name || personal.name}. All rights reserved.</p>
         <p className="text-slate-400">
           Machine Learning • Large Language Models • RAG • Computer Vision
         </p>

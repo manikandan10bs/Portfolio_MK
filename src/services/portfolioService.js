@@ -7,7 +7,8 @@ import {
   addDoc,
   deleteDoc,
   query,
-  where,
+  orderBy,
+  onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -22,7 +23,7 @@ import { personal as defaultProfile } from "../data/personal";
  * Removes any keys whose value is `undefined` so Firestore never throws
  * "Unsupported field value: undefined".
  */
-function stripUndefined(obj) {
+export function stripUndefined(obj) {
   const cleaned = {};
   for (const [key, value] of Object.entries(obj || {})) {
     if (value !== undefined) {
@@ -32,7 +33,7 @@ function stripUndefined(obj) {
   return cleaned;
 }
 
-function sortByOrder(items) {
+export function sortByOrder(items) {
   return [...items].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
 }
 
@@ -40,7 +41,7 @@ function sortByOrder(items) {
  * Fallback helper: converts & compresses an image file into a compact JPEG data URL
  * so certificate/project image uploads still work even if Firebase Storage isn't enabled yet.
  */
-function compressImageToDataUrl(file, maxWidth = 1200, quality = 0.82) {
+export function compressImageToDataUrl(file, maxWidth = 1200, quality = 0.82) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -53,7 +54,6 @@ function compressImageToDataUrl(file, maxWidth = 1200, quality = 0.82) {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL("image/jpeg", quality);
-        // Firestore single-document limit is 1 MiB (~1,048,576 bytes)
         if (dataUrl.length > 750000) {
           resolve(canvas.toDataURL("image/jpeg", 0.6));
         } else {
@@ -68,22 +68,123 @@ function compressImageToDataUrl(file, maxWidth = 1200, quality = 0.82) {
   });
 }
 
-/* ─── PUBLIC FETCHING (With Instant Fallback) ────────────────────────────── */
+/* ─── REAL-TIME FIRESTORE SUBSCRIPTIONS (Live Database Sync) ─────────────── */
+
+/**
+ * Real-time listener for published projects in Firestore.
+ * Automatically pushes updates to the UI whenever projects are added/edited in Firestore.
+ */
+export function subscribePublishedProjects(callback) {
+  try {
+    const colRef = collection(db, "projects");
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const items = snapshot.docs
+            .map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }))
+            .filter((p) => p.published !== false);
+          callback(sortByOrder(items));
+        } else {
+          callback(defaultProjects.filter((p) => p.published !== false));
+        }
+      },
+      (error) => {
+        console.warn("Firestore projects listener notice:", error?.message);
+        callback(defaultProjects.filter((p) => p.published !== false));
+      }
+    );
+  } catch (err) {
+    console.warn("Firestore projects subscription error:", err);
+    callback(defaultProjects.filter((p) => p.published !== false));
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for published certificates in Firestore.
+ * Automatically pushes updates to the UI whenever certificates are added/edited in Firestore.
+ */
+export function subscribePublishedCertificates(callback) {
+  try {
+    const colRef = collection(db, "certificates");
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const items = snapshot.docs
+            .map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }))
+            .filter((c) => c.published !== false);
+          callback(sortByOrder(items));
+        } else {
+          callback(defaultCertificates.filter((c) => c.published !== false));
+        }
+      },
+      (error) => {
+        console.warn("Firestore certificates listener notice:", error?.message);
+        callback(defaultCertificates.filter((c) => c.published !== false));
+      }
+    );
+  } catch (err) {
+    console.warn("Firestore certificates subscription error:", err);
+    callback(defaultCertificates.filter((c) => c.published !== false));
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for public profile in Firestore.
+ * Automatically pushes updates to the UI whenever profile settings are changed in Firestore.
+ */
+export function subscribePublicProfile(callback) {
+  const baseProfile = {
+    ...defaultProfile,
+    title: defaultProfile.designation || "AI/ML & Generative AI Developer",
+    headline: defaultProfile.name || "Manikandan N",
+    shortIntro: defaultProfile.heroIntroduction || "",
+  };
+
+  try {
+    const docRef = doc(db, "profile", "public");
+    return onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          callback({ ...baseProfile, ...snapshot.data() });
+        } else {
+          callback(baseProfile);
+        }
+      },
+      (error) => {
+        console.warn("Firestore profile listener notice:", error?.message);
+        callback(baseProfile);
+      }
+    );
+  } catch (err) {
+    console.warn("Firestore profile subscription error:", err);
+    callback(baseProfile);
+    return () => {};
+  }
+}
+
+/* ─── PUBLIC FETCHING (One-Shot with Fallback) ───────────────────────────── */
 
 export async function getPublishedProjects() {
   try {
-    // Query only `where("published", "==", true)` and sort client-side
-    // so no manual Firestore composite index is required.
-    const q = query(
-      collection(db, "projects"),
-      where("published", "==", true)
-    );
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(collection(db, "projects"));
     if (!snapshot.empty) {
-      const items = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
+      const items = snapshot.docs
+        .map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }))
+        .filter((p) => p.published !== false);
       return sortByOrder(items);
     }
   } catch (error) {
@@ -94,18 +195,14 @@ export async function getPublishedProjects() {
 
 export async function getPublishedCertificates() {
   try {
-    // Query only `where("published", "==", true)` and sort client-side
-    // so newly added certificates appear immediately without a composite index.
-    const q = query(
-      collection(db, "certificates"),
-      where("published", "==", true)
-    );
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(collection(db, "certificates"));
     if (!snapshot.empty) {
-      const items = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
+      const items = snapshot.docs
+        .map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }))
+        .filter((c) => c.published !== false);
       return sortByOrder(items);
     }
   } catch (error) {
@@ -132,6 +229,44 @@ export async function getPublicProfile() {
     console.warn("Using local profile defaults:", error?.message || error);
   }
   return baseProfile;
+}
+
+/* ─── CONTACT INQUIRIES (Firestore Messages Collection) ─────────────────── */
+
+export async function saveInquiry(inquiry) {
+  const data = stripUndefined({
+    name: inquiry.name || "Anonymous",
+    email: inquiry.email || "",
+    message: inquiry.message || "",
+    createdAt: serverTimestamp(),
+  });
+  const docRef = await addDoc(collection(db, "inquiries"), data);
+  return { id: docRef.id, ...data };
+}
+
+export async function getAllInquiriesAdmin() {
+  try {
+    const snapshot = await getDocs(collection(db, "inquiries"));
+    if (!snapshot.empty) {
+      const items = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }));
+      return items.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis?.() || 0;
+        const timeB = b.createdAt?.toMillis?.() || 0;
+        return timeB - timeA;
+      });
+    }
+  } catch (error) {
+    console.warn("Error fetching inquiries from Firestore:", error);
+  }
+  return [];
+}
+
+export async function deleteInquiryDoc(id) {
+  const refDoc = doc(db, "inquiries", id);
+  await deleteDoc(refDoc);
 }
 
 /* ─── ADMIN OPERATIONS (Protected by Security Rules) ─────────────────────── */
@@ -294,8 +429,6 @@ export async function uploadFileToStorage(file, folder = "uploads") {
     const downloadUrl = await getDownloadURL(snapshot.ref);
     return downloadUrl;
   } catch (storageError) {
-    // Graceful fallback when Firebase Storage isn't enabled yet:
-    // encode image uploads as a compressed data URL so Firestore stores it directly.
     if (file && file.type && file.type.startsWith("image/")) {
       console.warn("Firebase Storage unavailable, using compressed image fallback:", storageError?.message);
       return await compressImageToDataUrl(file);

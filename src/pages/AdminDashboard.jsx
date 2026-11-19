@@ -13,6 +13,8 @@ import {
   saveProfileSettings,
   seedDefaultDataToFirestore,
   uploadFileToStorage,
+  getAllInquiriesAdmin,
+  deleteInquiryDoc,
 } from "../services/portfolioService";
 import {
   LayoutDashboard,
@@ -35,6 +37,9 @@ import {
   Save,
   X,
   FileCode,
+  Mail,
+  Clock,
+  MessageSquare,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -44,6 +49,7 @@ export default function AdminDashboard() {
   // State
   const [projects, setProjects] = useState([]);
   const [certificates, setCertificates] = useState([]);
+  const [inquiries, setInquiries] = useState([]);
   const [profile, setProfile] = useState({});
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
@@ -82,14 +88,16 @@ export default function AdminDashboard() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [projData, certData, profData] = await Promise.all([
+      const [projData, certData, profData, inqData] = await Promise.all([
         getAllProjectsAdmin(),
         getAllCertificatesAdmin(),
         getPublicProfile(),
+        getAllInquiriesAdmin(),
       ]);
       setProjects(projData);
       setCertificates(certData);
       setProfile(profData);
+      setInquiries(inqData);
     } catch (err) {
       console.error("Dashboard data load error:", err);
       setMessage({ type: "error", text: "Failed to load data from Firestore." });
@@ -124,6 +132,17 @@ export default function AdminDashboard() {
       setMessage({ type: "error", text: `Sync failed: ${err.message}` });
     } finally {
       setSeeding(false);
+    }
+  };
+
+  const handleDeleteInquiry = async (id, name) => {
+    if (!window.confirm(`Delete message from "${name}"?`)) return;
+    try {
+      await deleteInquiryDoc(id);
+      setMessage({ type: "success", text: "Inquiry message removed from database." });
+      await loadDashboardData();
+    } catch (err) {
+      setMessage({ type: "error", text: `Delete failed: ${err.message}` });
     }
   };
 
@@ -353,6 +372,21 @@ export default function AdminDashboard() {
             >
               <User size={17} />
               <span>Profile Settings</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("inquiries")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                activeTab === "inquiries"
+                  ? "bg-sky-500/10 text-sky-400 font-semibold border border-sky-500/20"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Mail size={17} />
+              <span>Contact Messages</span>
+              <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-white/5 text-slate-400">
+                {inquiries.length}
+              </span>
             </button>
           </nav>
         </div>
@@ -758,6 +792,101 @@ export default function AdminDashboard() {
                 <span>Save Profile Changes</span>
               </button>
             </form>
+          </div>
+        )}
+
+        {/* ─── TAB: CONTACT MESSAGES / INQUIRIES ─── */}
+        {activeTab === "inquiries" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-white">Contact Inquiries</h2>
+                <p className="text-xs font-mono text-slate-400 mt-1">
+                  Messages submitted directly to Cloud Firestore from visitors via the Contact form
+                </p>
+              </div>
+              <button
+                onClick={loadDashboardData}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono transition-colors border border-white/10"
+              >
+                <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            {inquiries.length === 0 ? (
+              <div className="p-12 text-center rounded-2xl bg-[#0d111a] border border-white/10">
+                <Mail size={32} className="mx-auto text-slate-600 mb-3" />
+                <p className="text-sm font-semibold text-white">No Contact Messages Yet</p>
+                <p className="text-xs text-slate-500 font-mono mt-1">
+                  When visitors send a message through the contact section, it will appear here in real time.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {inquiries.map((inq) => {
+                  const dateStr = inq.createdDate
+                    ? new Date(inq.createdDate).toLocaleString()
+                    : inq.createdAt?.seconds
+                    ? new Date(inq.createdAt.seconds * 1000).toLocaleString()
+                    : "Recently";
+
+                  return (
+                    <div
+                      key={inq.id}
+                      className="p-5 rounded-2xl bg-[#0d111a] border border-white/10 hover:border-white/20 transition-all flex flex-col md:flex-row md:items-start justify-between gap-4"
+                    >
+                      <div className="space-y-2 flex-1">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <h3 className="text-base font-bold text-white">{inq.name || "Anonymous Visitor"}</h3>
+                          <a
+                            href={`mailto:${inq.email}`}
+                            className="text-xs font-mono text-sky-400 hover:underline flex items-center gap-1"
+                          >
+                            <Mail size={12} />
+                            <span>{inq.email}</span>
+                          </a>
+                          {inq.phone && (
+                            <span className="text-xs font-mono text-slate-400">
+                              Tel: {inq.phone}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/10 flex items-center gap-1 ml-auto">
+                            <Clock size={10} />
+                            {dateStr}
+                          </span>
+                        </div>
+                        {inq.subject && (
+                          <p className="text-xs font-semibold text-slate-300">
+                            Subject: {inq.subject}
+                          </p>
+                        )}
+                        <p className="text-sm text-slate-300 whitespace-pre-wrap bg-black/30 p-3.5 rounded-xl border border-white/5 font-sans leading-relaxed">
+                          {inq.message}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 md:self-start">
+                        <a
+                          href={`mailto:${inq.email}?subject=${encodeURIComponent("Re: " + (inq.subject || "Portfolio Inquiry"))}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold transition-colors"
+                        >
+                          <Mail size={13} />
+                          <span>Reply</span>
+                        </a>
+                        <button
+                          onClick={() => handleDeleteInquiry(inq.id, inq.name || "Anonymous")}
+                          className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors cursor-pointer"
+                          title="Delete message"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </main>

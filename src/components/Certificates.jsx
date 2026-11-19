@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { certificates as defaultCertificates } from "../data/certificates";
-import { getPublishedCertificates } from "../services/portfolioService";
+import { getPublishedCertificates, subscribePublishedCertificates } from "../services/portfolioService";
 
 /**
  * Automatic Rotation Interval: 1,800 milliseconds (1.8 seconds)
@@ -27,21 +27,14 @@ export default function Certificates() {
   const timerRef = useRef(null);
   const total = certList.length;
 
-  // Load from Firebase with fallback to local defaults (reusable for admin additions)
+  // Real-time Firestore Database subscription
   useEffect(() => {
-    let isMounted = true;
-    getPublishedCertificates()
-      .then((data) => {
-        if (isMounted && data && data.length > 0) {
-          setCertList(data);
-        }
-      })
-      .catch((err) => {
-        console.warn("Certificates fallback to local data:", err);
-      });
-    return () => {
-      isMounted = false;
-    };
+    const unsubscribe = subscribePublishedCertificates((data) => {
+      if (data && data.length > 0) {
+        setCertList(data);
+      }
+    });
+    return () => unsubscribe?.();
   }, []);
 
   // Timer helper: starts or restarts the 1.8-second rotation

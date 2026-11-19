@@ -2,32 +2,47 @@ import { useState } from "react";
 import { Mail, ArrowUpRight, Copy, Check, Send, Phone } from "lucide-react";
 import { FaGithub, FaLinkedinIn, FaInstagram } from "react-icons/fa6";
 import { personal } from "../data/personal";
+import { saveInquiry } from "../services/portfolioService";
 import Footer from "./Footer";
 
-export default function Contact() {
+export default function Contact({ profile }) {
+  const p = profile || personal;
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", message: "" });
 
   const handleCopyEmail = () => {
-    navigator.clipboard.writeText(personal.email);
+    navigator.clipboard.writeText(p.email);
     setCopiedEmail(true);
     setTimeout(() => setCopiedEmail(false), 2500);
   };
 
   const handleCopyPhone = () => {
-    navigator.clipboard.writeText(personal.phone);
+    navigator.clipboard.writeText(p.phone);
     setCopiedPhone(true);
     setTimeout(() => setCopiedPhone(false), 2500);
   };
 
-  const handleSubmit = (e) => {
+  const [sentStatus, setSentStatus] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    try {
+      await saveInquiry({
+        name: form.name,
+        email: form.email,
+        message: form.message,
+      });
+      setSentStatus(true);
+      setTimeout(() => setSentStatus(false), 5000);
+    } catch (err) {
+      console.warn("Firestore inquiry note:", err);
+    }
     const subject = encodeURIComponent(`AI/ML Inquiry from ${form.name}`);
     const body = encodeURIComponent(
       `Name: ${form.name}\nEmail: ${form.email}\n\nMessage:\n${form.message}`
     );
-    window.location.href = `mailto:${personal.email}?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:${p.email}?subject=${subject}&body=${body}`;
   };
 
   return (
@@ -67,16 +82,16 @@ export default function Contact() {
                   Primary Email
                 </span>
                 <a
-                  href={`mailto:${personal.email}`}
+                  href={`mailto:${p.email}`}
                   className="text-sm sm:text-base font-bold text-white hover:text-[#B99378] transition-colors truncate block mt-0.5"
                 >
-                  {personal.email}
+                  {p.email}
                 </a>
               </div>
 
               <div className="flex items-center gap-1.5 shrink-0">
                 <a
-                  href={`mailto:${personal.email}`}
+                  href={`mailto:${p.email}`}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-[#171717] hover:bg-[#EFEAE3] text-[11px] font-bold uppercase tracking-wider transition-colors"
                 >
                   <Mail size={13} />
@@ -101,16 +116,16 @@ export default function Contact() {
                   Direct Phone
                 </span>
                 <a
-                  href={`tel:${personal.phone}`}
+                  href={`tel:${p.phone}`}
                   className="text-sm sm:text-base font-bold text-white hover:text-[#B99378] transition-colors truncate block mt-0.5"
                 >
-                  {personal.phoneDisplay || personal.phone}
+                  {p.phoneDisplay || p.phone}
                 </a>
               </div>
 
               <div className="flex items-center gap-1.5 shrink-0">
                 <a
-                  href={`tel:${personal.phone}`}
+                  href={`tel:${p.phone}`}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-[#171717] hover:bg-[#EFEAE3] text-[11px] font-bold uppercase tracking-wider transition-colors"
                 >
                   <Phone size={13} />
@@ -132,7 +147,7 @@ export default function Contact() {
             <div className="grid grid-cols-3 gap-2.5">
               {/* LinkedIn */}
               <a
-                href={personal.linkedin}
+                href={p.linkedin}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-3 rounded-xl bg-[#212121] hover:bg-[#2b2b2b] border border-white/10 transition-all flex flex-col justify-between group"
@@ -152,7 +167,7 @@ export default function Contact() {
 
               {/* GitHub */}
               <a
-                href={personal.github}
+                href={p.github}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-3 rounded-xl bg-[#212121] hover:bg-[#2b2b2b] border border-white/10 transition-all flex flex-col justify-between group"
@@ -172,7 +187,7 @@ export default function Contact() {
 
               {/* Instagram */}
               <a
-                href={personal.instagram}
+                href={p.instagram}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-3 rounded-xl bg-[#212121] hover:bg-[#2b2b2b] border border-white/10 transition-all flex flex-col justify-between group"
@@ -199,7 +214,11 @@ export default function Contact() {
                 Send a Direct Note
               </h3>
               <span className="text-[10px] text-slate-400 font-mono">
-                Opens email client pre-filled
+                {sentStatus ? (
+                  <span className="text-emerald-400 font-bold">✓ Saved to Database & Opening Mail...</span>
+                ) : (
+                  "Saved to Database & opens mail client"
+                )}
               </span>
             </div>
 
@@ -261,7 +280,7 @@ export default function Contact() {
 
       {/* ─── Integrated Footer (Docked right at bottom of the same viewport) ─── */}
       <div className="shrink-0 -mx-6 sm:-mx-10 lg:-mx-12">
-        <Footer />
+        <Footer profile={p} />
       </div>
     </section>
   );

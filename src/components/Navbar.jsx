@@ -14,7 +14,8 @@ const navLinks = [
   { label: "Contact", href: "#contact" },
 ];
 
-export default function Navbar() {
+export default function Navbar({ profile }) {
+  const p = profile || personal;
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
@@ -73,7 +74,7 @@ export default function Navbar() {
               aria-label="Mr.MK Home"
             >
               <span className="text-2xl sm:text-[26px] font-black text-[#171717] tracking-tight group-hover:opacity-85 transition-opacity">
-                {personal.brandName || "Mr.MK"}
+                {p.brandName || "Mr.MK"}
               </span>
             </Link>
 

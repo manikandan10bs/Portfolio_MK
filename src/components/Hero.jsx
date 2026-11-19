@@ -4,12 +4,13 @@ import { ArrowDown, ArrowUpRight, User } from "lucide-react";
 import { FaGithub, FaLinkedinIn } from "react-icons/fa6";
 import { personal } from "../data/personal";
 
-export default function Hero() {
+export default function Hero({ profile }) {
+  const p = profile || personal;
   const [imgError, setImgError] = useState(false);
   const [rotateX, setRotateX] = useState(0);
   const [rotateY, setRotateY] = useState(0);
   // Profile photo directly loaded from src/assets/images/profile image mani.png
-  const photoPath = personal.profilePhoto;
+  const photoPath = p.profilePhoto || personal.profilePhoto;
 
   const handleHeroMouseMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -65,7 +66,7 @@ export default function Hero() {
             >
               <span className="w-2 h-2 rounded-full bg-[#B99378]" />
               <span className="text-xs font-bold tracking-[0.22em] uppercase text-[#77736D]">
-                {personal.shortIntroLabel || "HELLO, I'M"}
+                {p.shortIntroLabel || "HELLO, I'M"}
               </span>
             </motion.div>
 
@@ -76,7 +77,7 @@ export default function Hero() {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="text-5xl sm:text-6xl md:text-7xl lg:text-[76px] font-black text-[#171717] tracking-tight leading-[1.02] mb-3"
             >
-              Manikandan <span className="text-[#B99378]">N</span>
+              {p.headline || p.name || "Manikandan N"}
             </motion.h1>
 
             {/* Professional Designation */}
@@ -86,7 +87,7 @@ export default function Hero() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="text-lg sm:text-xl md:text-2xl font-bold text-[#171717] tracking-tight mb-5"
             >
-              {personal.designation}
+              {p.designation || p.title}
             </motion.p>
 
             {/* Personal Introduction */}
@@ -96,7 +97,7 @@ export default function Hero() {
               transition={{ duration: 0.5, delay: 0.3 }}
               className="text-[#77736D] text-base sm:text-lg leading-relaxed max-w-xl font-normal mb-9"
             >
-              {personal.heroIntroduction}
+              {p.heroIntroduction || p.shortIntro}
             </motion.p>
 
             {/* CTA Buttons & Social Profiles */}
@@ -128,7 +129,7 @@ export default function Hero() {
               {/* Minimal LinkedIn and GitHub Icons */}
               <div className="flex items-center gap-3 sm:ml-2">
                 <a
-                  href={personal.github}
+                  href={p.github}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Manikandan on GitHub"
@@ -139,7 +140,7 @@ export default function Hero() {
                 </a>
 
                 <a
-                  href={personal.linkedin}
+                  href={p.linkedin}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Manikandan on LinkedIn"

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { FaGithub } from "react-icons/fa6";
 import { projects as defaultProjects } from "../data/projects";
-import { getPublishedProjects } from "../services/portfolioService";
+import { getPublishedProjects, subscribePublishedProjects } from "../services/portfolioService";
 
 /**
  * Automatic Project Showcase Rotation Interval: 2,300 milliseconds (2.3 seconds)
@@ -337,21 +337,14 @@ export default function Projects() {
   const sectionRef = useRef(null);
   const timerRef = useRef(null);
 
-  // Fetch published projects from Firestore (with local fallback)
+  // Real-time Firestore Database subscription
   useEffect(() => {
-    let isMounted = true;
-    getPublishedProjects()
-      .then((data) => {
-        if (isMounted && data && data.length > 0) {
-          setProjectList(data);
-        }
-      })
-      .catch((err) => {
-        console.warn("Using local project defaults:", err);
-      });
-    return () => {
-      isMounted = false;
-    };
+    const unsubscribe = subscribePublishedProjects((data) => {
+      if (data && data.length > 0) {
+        setProjectList(data);
+      }
+    });
+    return () => unsubscribe?.();
   }, []);
 
   const total = projectList.length;

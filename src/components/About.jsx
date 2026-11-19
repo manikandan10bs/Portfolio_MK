@@ -2,7 +2,14 @@ import { motion } from "framer-motion";
 import { ArrowUpRight, Sparkles, BrainCircuit, Cpu } from "lucide-react";
 import { personal } from "../data/personal";
 
-export default function About() {
+export default function About({ profile }) {
+  const p = profile || personal;
+  const bioParagraphs = Array.isArray(p.aboutText)
+    ? p.aboutText
+    : typeof p.aboutText === "string"
+    ? p.aboutText.split("\n\n").filter(Boolean)
+    : personal.aboutText;
+
   return (
     <section
       id="about"
@@ -28,7 +35,7 @@ export default function About() {
           </div>
 
           <div className="lg:col-span-6 space-y-6 text-[#77736D] text-base sm:text-lg leading-relaxed font-normal">
-            {personal.aboutText.map((para, idx) => (
+            {bioParagraphs.map((para, idx) => (
               <p key={idx} className="border-l-2 border-[#B99378]/50 pl-4 py-0.5">
                 {para}
               </p>
