@@ -39,31 +39,53 @@ export function sortByOrder(items) {
 
 /**
  * Fallback helper: converts & compresses an image file into a compact JPEG data URL
- * so certificate/project image uploads still work even if Firebase Storage isn't enabled yet.
+ * so certificate/project image uploads work reliably and instantly even if Firebase Storage isn't enabled yet.
  */
-export function compressImageToDataUrl(file, maxWidth = 1200, quality = 0.82) {
+export function compressImageToDataUrl(file, maxWidth = 1000, quality = 0.82) {
   return new Promise((resolve, reject) => {
+    if (!file) {
+      return reject(new Error("No file provided."));
+    }
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        const scale = Math.min(1, maxWidth / img.width);
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg", quality);
-        if (dataUrl.length > 750000) {
-          resolve(canvas.toDataURL("image/jpeg", 0.6));
-        } else {
-          resolve(dataUrl);
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
         }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        
+        // Fill canvas with white background so transparent PNG badges don't render black
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        let dataUrl = canvas.toDataURL("image/jpeg", quality);
+        if (dataUrl.length > 400000) {
+          dataUrl = canvas.toDataURL("image/jpeg", 0.65);
+        }
+        if (dataUrl.length > 400000) {
+          const halfCanvas = document.createElement("canvas");
+          halfCanvas.width = Math.round(width * 0.7);
+          halfCanvas.height = Math.round(height * 0.7);
+          const halfCtx = halfCanvas.getContext("2d");
+          halfCtx.fillStyle = "#ffffff";
+          halfCtx.fillRect(0, 0, halfCanvas.width, halfCanvas.height);
+          halfCtx.drawImage(canvas, 0, 0, halfCanvas.width, halfCanvas.height);
+          dataUrl = halfCanvas.toDataURL("image/jpeg", 0.6);
+        }
+        resolve(dataUrl);
       };
-      img.onerror = () => reject(new Error("Could not decode image file."));
+      img.onerror = () => reject(new Error("Could not decode image file. Please provide a valid JPG/PNG/WEBP."));
       img.src = event.target.result;
     };
-    reader.onerror = () => reject(new Error("Could not read image file."));
+    reader.onerror = () => reject(new Error("Could not read file from disk."));
     reader.readAsDataURL(file);
   });
 }
@@ -415,26 +437,80 @@ export async function saveProfileSettings(profileData) {
     phone: profileData.phone || defaultProfile.phone || "",
     location: profileData.location || defaultProfile.location || "India",
     resumePath: profileData.resumePath || defaultProfile.resumePath || "",
+    cloudinaryCloudName: profileData.cloudinaryCloudName || "",
+    cloudinaryPreset: profileData.cloudinaryPreset || "",
     updatedAt: serverTimestamp(),
   });
   await setDoc(refDoc, safeData, { merge: true });
 }
 
-export async function uploadFileToStorage(file, folder = "uploads") {
-  try {
-    const timestamp = Date.now();
-    const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const storageRef = ref(storage, `${folder}/${timestamp}_${cleanName}`);
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadUrl = await getDownloadURL(snapshot.ref);
-    return downloadUrl;
-  } catch (storageError) {
-    if (file && file.type && file.type.startsWith("image/")) {
-      console.warn("Firebase Storage unavailable, using compressed image fallback:", storageError?.message);
-      return await compressImageToDataUrl(file);
-    }
-    throw storageError;
+/**
+ * Free Media Upload to Cloudinary (Free Tier: 25GB Storage & Streaming CDN, 0 Cost)
+ */
+export async function uploadToCloudinary(file, cloudName, uploadPreset) {
+  if (!file) throw new Error("No file selected.");
+  if (!cloudName || !uploadPreset) {
+    throw new Error("Cloudinary Cloud Name and Upload Preset are required.");
   }
+
+  const isVideo = file.type?.startsWith("video/") || /\.(mp4|webm|mov|mkv)$/i.test(file.name || "");
+  const resourceType = isVideo ? "video" : "image";
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", uploadPreset);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Cloudinary upload failed (HTTP ${res.status})`);
+  }
+
+  const data = await res.json();
+  return data.secure_url;
+}
+
+/**
+ * Universal Zero-Cost Media Upload Helper
+ * - Images/Certificates: Automatically compressed client-side and saved into Firestore ($0 cost forever).
+ * - Videos: Uploads to free Cloudinary if configured, or prompts using free YouTube / Google Drive hosting.
+ */
+export async function uploadFileToStorage(file, folder = "uploads", cloudinaryConfig = null) {
+  if (!file) {
+    throw new Error("No file provided for upload.");
+  }
+
+  const isImage =
+    (file.type && file.type.startsWith("image/")) ||
+    /\.(jpg|jpeg|png|webp|gif|svg|bmp|jfif|avif)$/i.test(file.name || "");
+
+  const isVideo =
+    (file.type && file.type.startsWith("video/")) ||
+    /\.(mp4|webm|mov|mkv)$/i.test(file.name || "");
+
+  // 1. If Cloudinary free tier credentials are provided, upload there (supports both video & image)
+  if (cloudinaryConfig?.cloudName && cloudinaryConfig?.preset) {
+    return await uploadToCloudinary(file, cloudinaryConfig.cloudName, cloudinaryConfig.preset);
+  }
+
+  // 2. For Images & Certificates: Use client-side compression directly into Firestore (100% Free Forever)
+  if (isImage) {
+    return await compressImageToDataUrl(file);
+  }
+
+  // 3. For Videos without Cloudinary configured:
+  if (isVideo) {
+    throw new Error(
+      "Direct video uploads require free video hosting. You can host videos for 100% free by: 1) Pasting a free unlisted YouTube link, 2) Pasting a Google Drive share link, or 3) Entering your free Cloudinary account in Profile settings."
+    );
+  }
+
+  // Fallback for document files (like resume PDF)
+  return await compressImageToDataUrl(file);
 }
 
 /* ─── ONE-CLICK SEEDING HELPER ───────────────────────────────────────────── */

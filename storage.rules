@@ -4,25 +4,10 @@ service firebase.storage {
 
     function isAdmin() {
       return request.auth != null && 
-             request.auth.token.email == 'manikandan10bs@gmail.com';
+             request.auth.token.email.lower() == 'manikandan10bs@gmail.com';
     }
 
-    // Public assets (thumbnails, certificates) can be viewed by anyone
-    match /projects/{allPaths=**} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /certificates/{allPaths=**} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /profile/{allPaths=**} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
+    // Public assets (thumbnails, certificates, resumes) can be viewed by anyone
     match /{allPaths=**} {
       allow read: if true;
       allow write: if isAdmin();

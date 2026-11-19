@@ -158,6 +158,8 @@ export default function AdminDashboard() {
       description: "",
       architecture: "",
       tech: "",
+      thumbnail: "",
+      video: "",
       github: "https://github.com/manikandan10bs",
       demo: "",
       accentColor: "#38bdf8",
@@ -171,6 +173,8 @@ export default function AdminDashboard() {
     setEditingProject({
       ...p,
       isNew: false,
+      thumbnail: p.thumbnail || p.thumbnailUrl || "",
+      video: p.video || "",
       architecture: Array.isArray(p.features)
         ? p.features.join("\n")
         : Array.isArray(p.architecture)
@@ -280,17 +284,31 @@ export default function AdminDashboard() {
     if (!file) return;
     setUploadingAsset(true);
     try {
-      const url = await uploadFileToStorage(file, modalType === "project" ? "projects" : "certificates");
+      const cloudinaryConfig =
+        profile.cloudinaryCloudName && profile.cloudinaryPreset
+          ? { cloudName: profile.cloudinaryCloudName, preset: profile.cloudinaryPreset }
+          : null;
+
+      const url = await uploadFileToStorage(
+        file,
+        modalType === "project" ? "projects" : "certificates",
+        cloudinaryConfig
+      );
+
       if (modalType === "project") {
         setEditingProject((prev) => ({ ...prev, [targetField]: url }));
       } else {
         setEditingCert((prev) => ({ ...prev, [targetField]: url }));
       }
-      setMessage({ type: "success", text: "File uploaded to Firebase Storage." });
+      setMessage({ type: "success", text: `Media asset (${file.name}) attached successfully!` });
     } catch (err) {
+      console.error("Upload error:", err);
       setMessage({ type: "error", text: `Upload failed: ${err.message}` });
     } finally {
       setUploadingAsset(false);
+      if (e.target) {
+        e.target.value = "";
+      }
     }
   };
 
@@ -784,6 +802,45 @@ export default function AdminDashboard() {
                 </p>
               </div>
 
+              {/* Free Media Storage Settings (Cloudinary Free Tier - 25GB) */}
+              <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Database size={15} className="text-emerald-400" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                    Free Media & Video Storage (Cloudinary Free Tier - 25 GB)
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-400 font-mono leading-relaxed">
+                  Certificate images and project thumbnails are automatically compressed and stored in Cloud Firestore for $0. For large video uploads without paying for Firebase Storage, enter your free Cloudinary account details (25 GB free storage & streaming CDN with no credit card required).
+                </p>
+                <div className="grid sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-400 mb-1">
+                      Cloudinary Cloud Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={profile.cloudinaryCloudName || ""}
+                      onChange={(e) => setProfile({ ...profile, cloudinaryCloudName: e.target.value })}
+                      placeholder="e.g. dxyz123ab"
+                      className="w-full px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-xs text-white focus:border-sky-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-400 mb-1">
+                      Unsigned Upload Preset (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={profile.cloudinaryPreset || ""}
+                      onChange={(e) => setProfile({ ...profile, cloudinaryPreset: e.target.value })}
+                      placeholder="e.g. portfolio_preset"
+                      className="w-full px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-xs text-white focus:border-sky-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <button
                 type="submit"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs tracking-wide transition-all shadow-lg shadow-sky-500/20 cursor-pointer"
@@ -1031,6 +1088,84 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Media: Project Thumbnail (Free Compressed Storage) */}
+              <div>
+                <label className="block text-xs font-mono text-slate-400 uppercase mb-1">
+                  Project Thumbnail / Screenshot Image
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={editingProject.thumbnail || ""}
+                    onChange={(e) => setEditingProject({ ...editingProject, thumbnail: e.target.value })}
+                    placeholder="/projects/thumbnails/demo.png or image URL"
+                    className="flex-1 px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-sm text-white"
+                  />
+                  <label
+                    className={`px-4 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
+                      uploadingAsset ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                    }`}
+                  >
+                    <Upload size={14} className={uploadingAsset ? "animate-bounce" : ""} />
+                    <span>{uploadingAsset ? "Attaching..." : "Upload Image"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingAsset}
+                      onChange={(e) => handleFileUpload(e, "thumbnail", "project")}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {editingProject.thumbnail && (
+                  <div className="mt-2.5 p-2 bg-black/50 border border-white/10 rounded-xl flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-14 h-10 rounded-lg bg-white/5 border border-white/10 p-1 flex items-center justify-center overflow-hidden shrink-0">
+                        <img
+                          src={editingProject.thumbnail}
+                          alt="Thumbnail preview"
+                          className="max-h-full max-w-full object-contain"
+                          onError={(e) => (e.currentTarget.style.opacity = "0.3")}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-white font-medium truncate">
+                          {editingProject.thumbnail.startsWith("data:")
+                            ? "Thumbnail attached (Compressed Firestore Embed)"
+                            : editingProject.thumbnail}
+                        </p>
+                        <p className="text-[10px] text-emerald-400 font-mono">Ready to save</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingProject((prev) => ({ ...prev, thumbnail: "" }))}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 text-xs transition-colors shrink-0"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Media: Demo Video URL (100% Free Hosting Supported) */}
+              <div>
+                <label className="block text-xs font-mono text-slate-400 uppercase mb-1">
+                  Demo Video URL (Free Hosting Supported)
+                </label>
+                <input
+                  type="text"
+                  value={editingProject.video || ""}
+                  onChange={(e) => setEditingProject({ ...editingProject, video: e.target.value })}
+                  placeholder="https://youtu.be/... or Google Drive link or Cloudinary or /projects/videos/demo.mp4"
+                  className="w-full px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-sm text-white"
+                />
+                <p className="text-[11px] text-slate-500 font-mono mt-1">
+                  100% Free Hosting: Paste an unlisted YouTube link, Google Drive share link, Cloudinary URL, or local MP4 path.
+                </p>
+              </div>
+
               <div className="flex items-center gap-6 pt-2">
                 <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-slate-300">
                   <input
@@ -1157,27 +1292,69 @@ export default function AdminDashboard() {
 
               <div>
                 <label className="block text-xs font-mono text-slate-400 uppercase mb-1">
-                  Certificate Image URL or Upload
+                  Certificate Image or Credential Badge
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    value={editingCert.image}
+                    value={editingCert.image || ""}
                     onChange={(e) => setEditingCert({ ...editingCert, image: e.target.value })}
-                    placeholder="/certificates/AI_IBM.png"
+                    placeholder="/certificates/AI_IBM.png or image URL"
                     className="flex-1 px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-sm text-white"
                   />
-                  <label className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-mono text-white flex items-center gap-1.5 cursor-pointer">
-                    <Upload size={14} />
-                    <span>Upload</span>
+                  <label
+                    className={`px-4 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
+                      uploadingAsset ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                    }`}
+                  >
+                    <Upload size={14} className={uploadingAsset ? "animate-bounce" : ""} />
+                    <span>{uploadingAsset ? "Attaching..." : "Upload Image"}</span>
                     <input
                       type="file"
-                      accept="image/*,.pdf"
+                      accept="image/*"
+                      disabled={uploadingAsset}
                       onChange={(e) => handleFileUpload(e, "image", "cert")}
                       className="hidden"
                     />
                   </label>
                 </div>
+
+                {/* Live Preview of Certificate Image */}
+                {editingCert.image && (
+                  <div className="mt-2.5 p-2.5 bg-black/50 border border-white/10 rounded-xl flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-14 h-12 rounded-lg bg-white/5 border border-white/10 p-1 flex items-center justify-center overflow-hidden shrink-0">
+                        <img
+                          src={editingCert.image}
+                          alt="Certificate Preview"
+                          className="max-h-full max-w-full object-contain"
+                          onError={(e) => (e.currentTarget.style.opacity = "0.3")}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-white font-medium truncate">
+                          {editingCert.image.startsWith("data:")
+                            ? "Custom Certificate Image (Embedded Data)"
+                            : editingCert.image}
+                        </p>
+                        <p className="text-[10px] text-emerald-400 font-mono">
+                          Image ready • Click "Save Certificate" to publish
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingCert((prev) => ({ ...prev, image: "" }))}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 text-xs transition-colors shrink-0"
+                      title="Remove image"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-500 font-mono mt-1">
+                  Upload any badge or certificate image (PNG, JPG, WEBP). Supports transparency.
+                </p>
               </div>
 
               <div>

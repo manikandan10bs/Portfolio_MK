@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play,
@@ -94,14 +94,67 @@ function ThreeDTiltCard({ children, className = "", enableTilt = true }) {
   );
 }
 
-/* ─── Compact Spacious Video & Screenshot Player (object-contain with Fullscreen) ─── */
+/**
+ * Parses any video source:
+ * - Free YouTube (unlisted/public)
+ * - Free Google Drive shareable video
+ * - Free Vimeo
+ * - Native .mp4/.webm (Cloudinary, local, etc.)
+ */
+function parseVideoSource(url) {
+  if (!url || typeof url !== "string") return null;
+
+  // YouTube match
+  const ytMatch = url.match(
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i
+  );
+  if (ytMatch && ytMatch[1]) {
+    return {
+      type: "youtube",
+      id: ytMatch[1],
+      embedUrl: `https://www.youtube-nocookie.com/embed/${ytMatch[1]}?autoplay=1&mute=1&loop=1&playlist=${ytMatch[1]}&controls=1&rel=0&modestbranding=1`,
+    };
+  }
+
+  // Google Drive match
+  const gdMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/i);
+  if (gdMatch && gdMatch[1]) {
+    return {
+      type: "googledrive",
+      id: gdMatch[1],
+      embedUrl: `https://drive.google.com/file/d/${gdMatch[1]}/preview`,
+    };
+  }
+
+  // Vimeo match
+  const vimeoMatch = url.match(
+    /vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/([^\/]*)\/videos\/|album\/(\d+)\/video\/|)(\d+)(?:$|\/|\?)/i
+  );
+  if (vimeoMatch && vimeoMatch[3]) {
+    return {
+      type: "vimeo",
+      id: vimeoMatch[3],
+      embedUrl: `https://player.vimeo.com/video/${vimeoMatch[3]}?autoplay=1&muted=1&loop=1`,
+    };
+  }
+
+  // Direct MP4 / WebM / Cloudinary video URL or local path
+  return {
+    type: "native",
+    src: url,
+  };
+}
+
+/* ─── Compact Spacious Video & Screenshot Player (Supports Free Hosting) ─── */
 function ProjectMediaViewer({ project, onOpenLightbox, onVideoPlayChange }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const videoRef = useRef(null);
   const containerRef = useRef(null);
 
-  const hasVideo = Boolean(project.video);
+  const videoSource = useMemo(() => parseVideoSource(project.video), [project.video]);
+  const hasVideo = Boolean(videoSource);
+  const isEmbed = Boolean(videoSource && videoSource.type !== "native");
   const hasThumbnail = Boolean(project.thumbnail);
 
   // Sync video playback state with parent to avoid auto-rotating mid-video
@@ -110,9 +163,9 @@ function ProjectMediaViewer({ project, onOpenLightbox, onVideoPlayChange }) {
     return () => onVideoPlayChange?.(false);
   }, [isPlaying, onVideoPlayChange]);
 
-  // Play video on hover if present
+  // Play native video on hover if present
   useEffect(() => {
-    if (!videoRef.current || !hasVideo) return;
+    if (!videoRef.current || !hasVideo || isEmbed) return;
     if (isHovered) {
       videoRef.current
         .play()
@@ -122,7 +175,7 @@ function ProjectMediaViewer({ project, onOpenLightbox, onVideoPlayChange }) {
       videoRef.current.pause();
       setIsPlaying(false);
     }
-  }, [isHovered, hasVideo]);
+  }, [isHovered, hasVideo, isEmbed]);
 
   // Pause when scrolled out of view
   useEffect(() => {
@@ -132,8 +185,10 @@ function ProjectMediaViewer({ project, onOpenLightbox, onVideoPlayChange }) {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (!entry.isIntersecting && videoRef.current) {
-            videoRef.current.pause();
+          if (!entry.isIntersecting) {
+            if (videoRef.current) {
+              videoRef.current.pause();
+            }
             setIsPlaying(false);
           }
         });
@@ -147,23 +202,31 @@ function ProjectMediaViewer({ project, onOpenLightbox, onVideoPlayChange }) {
 
   const togglePlayClick = (e) => {
     e.stopPropagation();
-    if (!videoRef.current || !hasVideo) {
+    if (!hasVideo) {
       if (hasThumbnail && onOpenLightbox) {
         onOpenLightbox(project.thumbnail, project.title);
       }
       return;
     }
-    if (videoRef.current.paused) {
-      videoRef.current.play().then(() => setIsPlaying(true));
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
+
+    if (isEmbed) {
+      setIsPlaying((prev) => !prev);
+      return;
+    }
+
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().then(() => setIsPlaying(true));
+      } else {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      }
     }
   };
 
   const handleFullscreen = (e) => {
     e.stopPropagation();
-    if (hasVideo && videoRef.current) {
+    if (hasVideo && !isEmbed && videoRef.current) {
       const video = videoRef.current;
       if (video.requestFullscreen) {
         video.requestFullscreen();
@@ -189,11 +252,22 @@ function ProjectMediaViewer({ project, onOpenLightbox, onVideoPlayChange }) {
         {/* Subtle Ambient Shadow & Gloss */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none z-10" />
 
-        {/* Video layer with object-contain */}
-        {hasVideo && (
+        {/* Video layer: Embed (YouTube / Google Drive / Vimeo) */}
+        {hasVideo && isEmbed && isPlaying && (
+          <iframe
+            src={videoSource.embedUrl}
+            title={`${project.title} Video Demo`}
+            className="w-full h-full border-0 z-10"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        )}
+
+        {/* Video layer: Native MP4 / WebM / Cloudinary */}
+        {hasVideo && !isEmbed && (
           <video
             ref={videoRef}
-            src={project.video}
+            src={videoSource.src}
             poster={project.thumbnail}
             playsInline
             muted
@@ -205,11 +279,11 @@ function ProjectMediaViewer({ project, onOpenLightbox, onVideoPlayChange }) {
           />
         )}
 
-        {/* Static Poster Image layer (object-contain to preserve every detail) */}
-        {hasThumbnail && (
+        {/* Static Poster Image layer */}
+        {hasThumbnail && (!isEmbed || !isPlaying) && (
           <div
             className={`absolute inset-0 w-full h-full flex items-center justify-center p-2 sm:p-4 transition-opacity duration-500 ${
-              isPlaying ? "opacity-0 pointer-events-none" : "opacity-100"
+              isPlaying && !isEmbed ? "opacity-0 pointer-events-none" : "opacity-100"
             }`}
           >
             <img
@@ -234,7 +308,7 @@ function ProjectMediaViewer({ project, onOpenLightbox, onVideoPlayChange }) {
             title="Expand to Fullscreen"
             className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/75 hover:bg-black text-white/80 hover:text-white backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer"
           >
-            {hasVideo ? <Maximize size={14} /> : <Eye size={14} />}
+            {hasVideo && !isEmbed ? <Maximize size={14} /> : <Eye size={14} />}
           </button>
 
           {/* Play/Pause Toggle if video is present */}
@@ -265,7 +339,9 @@ function ProjectMediaViewer({ project, onOpenLightbox, onVideoPlayChange }) {
             <span>
               {hasVideo
                 ? isPlaying
-                  ? "Live Screen Recording"
+                  ? "Live Demo Playing"
+                  : isEmbed
+                  ? "Click to Play Demo"
                   : "Hover to Play Video"
                 : "Interactive Dashboard Preview"}
             </span>
